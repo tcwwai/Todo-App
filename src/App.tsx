@@ -869,7 +869,7 @@ function App() {
                       ? 'What needs to be done?'
                       : 'What is the sub-task?'
                   }
-                  className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-[16px] text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                 />
 
                 {newItemType === 'task' && (
@@ -878,7 +878,7 @@ function App() {
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Add a description (optional)"
                     rows={3}
-                    className="w-full resize-none rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    className="w-full resize-none rounded-2xl border border-slate-200 px-4 py-3 text-[16px] text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   />
                 )}
 
@@ -913,7 +913,7 @@ function App() {
                     value={dueDate}
                     onChange={setDueDate}
                     placeholder="dd/mm/yyyy"
-                    inputClassName="w-[190px] rounded-2xl border border-slate-200 bg-white pl-9 pr-4 py-2.5 text-sm text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    inputClassName="w-[190px] rounded-2xl border border-slate-200 bg-white pl-9 pr-4 py-2.5 text-[16px] text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   />
 
                   <div className="ml-auto flex items-center gap-4">
@@ -1117,7 +1117,7 @@ function App() {
                                   value={editDueDate}
                                   onChange={setEditDueDate}
                                   placeholder="dd/mm/yyyy"
-                                  inputClassName="rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-xs text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                  inputClassName="rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-[16px] text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                                 />
                                 <div className="ml-auto flex items-center gap-2 text-xs">
                                   <button
@@ -1179,7 +1179,7 @@ function App() {
                                                 value={editSubtaskDueDate}
                                                 onChange={setEditSubtaskDueDate}
                                                 placeholder="dd/mm/yyyy"
-                                                inputClassName="rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-xs text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                                inputClassName="rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-[16px] text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                                               />
                                               <div className="ml-auto flex items-center gap-2 text-xs">
                                                 <button
@@ -1277,7 +1277,7 @@ function App() {
                                     }))
                                   }
                                   placeholder="dd/mm/yyyy"
-                                  inputClassName="w-[130px] rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-1.5 text-[11px] text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                  inputClassName="w-[130px] rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-1.5 text-[16px] text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                                 />
                                 <button
                                   type="button"
@@ -1522,7 +1522,7 @@ function App() {
                                 value={editSubtaskDueDate}
                                 onChange={setEditSubtaskDueDate}
                                 placeholder="dd/mm/yyyy"
-                                inputClassName="rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-xs text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                inputClassName="rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-[16px] text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                               />
                               <div className="ml-auto flex items-center gap-2 text-xs">
                                 <button
@@ -1648,7 +1648,7 @@ function App() {
               ))}
             </div>
 
-            <div className="max-h-[320px] space-y-1 overflow-auto pr-1 text-xs">
+            <div className="space-y-1 text-xs sm:max-h-[320px] sm:overflow-auto sm:pr-1">
               {loading ? (
                 <p className="py-6 text-center text-slate-400">Loading tasks...</p>
               ) : !hasOverviewItems ? (
@@ -1721,7 +1721,7 @@ function App() {
                                     value={editDueDate}
                                     onChange={setEditDueDate}
                                     placeholder="dd/mm/yyyy"
-                                    inputClassName="rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-xs text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                    inputClassName="rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-[16px] text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                                   />
                                   <div className="ml-auto flex items-center gap-2 text-xs">
                                     <button
@@ -1824,7 +1824,7 @@ function App() {
                                                     value={editSubtaskDueDate}
                                                     onChange={setEditSubtaskDueDate}
                                                     placeholder="dd/mm/yyyy"
-                                                    inputClassName="rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-xs text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                                    inputClassName="rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-[16px] text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                                                   />
                                                   <div className="ml-auto flex items-center gap-2 text-xs">
                                                     <button
