@@ -113,7 +113,19 @@ function App() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setSubtasks(sortSubtasksByDate(data || []));
+
+      if (data && data.length > 0) {
+        const missingIsCompleted = (data as any[]).some(
+          (row) => typeof (row as any).is_completed === 'undefined'
+        );
+        if (missingIsCompleted) {
+          alert(
+            'Your Supabase "subtasks" table is missing the "is_completed" column. Please run the latest SQL migration for subtasks in Supabase so sub-task completion can be saved.'
+          );
+        }
+      }
+
+      setSubtasks(sortSubtasksByDate((data as any[]) || []));
     } catch (error) {
       console.error('Error fetching subtasks:', error);
     }
@@ -351,22 +363,47 @@ function App() {
   };
 
   const toggleSubtaskComplete = async (id: string, isCompleted: boolean) => {
+    // Optimistic update so the checkbox responds immediately
+    setSubtasks((current) =>
+      current.map((subtask) =>
+        subtask.id === id
+          ? { ...subtask, is_completed: !isCompleted }
+          : subtask
+      )
+    );
+
     try {
       const { error } = await supabase
         .from('subtasks')
         .update({ is_completed: !isCompleted })
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        const message =
+          typeof error === 'object' && error !== null && 'message' in error
+            ? String((error as any).message)
+            : 'Unknown error updating sub-task.';
+        throw new Error(message);
+      }
+    } catch (error) {
+      console.error('Error updating subtask:', error);
+
+      // Revert optimistic change if the database update failed
       setSubtasks((current) =>
         current.map((subtask) =>
           subtask.id === id
-            ? { ...subtask, is_completed: !isCompleted }
+            ? { ...subtask, is_completed: isCompleted }
             : subtask
         )
       );
-    } catch (error) {
-      console.error('Error updating subtask:', error);
+
+      const message =
+        typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as any).message)
+          : 'Unknown error updating sub-task.';
+      alert(
+        `There was a problem saving this sub-task. Please ensure your Supabase "subtasks" table has an "is_completed" boolean column and that RLS policies allow UPDATE.\n\nDetails: ${message}`
+      );
     }
   };
 
@@ -415,8 +452,15 @@ function App() {
         .eq('id', id)
         .select();
 
-      if (error) throw error;
-      if (data) {
+      if (error) {
+        const message =
+          typeof error === 'object' && error !== null && 'message' in error
+            ? String((error as any).message)
+            : 'Unknown error updating sub-task.';
+        throw new Error(message);
+      }
+
+      if (data && data.length > 0) {
         const updated = data[0];
         setSubtasks((current) =>
           sortSubtasksByDate(
@@ -432,6 +476,13 @@ function App() {
       setEditSubtaskDueDate('');
     } catch (error) {
       console.error('Error updating subtask:', error);
+      const message =
+        typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as any).message)
+          : 'Unknown error updating sub-task.';
+      alert(
+        `There was a problem saving changes to this sub-task. Please ensure your Supabase "subtasks" table has the expected columns and that RLS policies allow UPDATE.\n\nDetails: ${message}`
+      );
     }
   };
 
@@ -685,10 +736,16 @@ function App() {
   const unscheduledTodos = todos.filter(
     (todo) => !todo.due_date && !todo.is_completed
   );
-  const allActiveSubtasks = subtasks.filter((subtask) => !subtask.is_completed);
-  const unscheduledSubtasks = subtasks.filter(
-    (subtask) => !subtask.due_date && !subtask.is_completed
-  );
+  const allActiveSubtasks = subtasks.filter((subtask) => {
+    if (subtask.is_completed) return false;
+    const parent = todos.find((todo) => todo.id === subtask.todo_id);
+    return parent && !parent.is_completed;
+  });
+  const unscheduledSubtasks = subtasks.filter((subtask) => {
+    if (subtask.is_completed || subtask.due_date) return false;
+    const parent = todos.find((todo) => todo.id === subtask.todo_id);
+    return parent && !parent.is_completed;
+  });
 
   const canCreateSubtaskFromNewForm = todos.length > 0;
 
@@ -711,7 +768,7 @@ function App() {
   const visibleTodos: Todo[] = dayTodos;
 
   return (
-    <div className="h-screen overflow-y-scroll bg-slate-50 py-10 px-4 text-slate-900">
+    <div className="h-screen overflow-y-scroll overflow-x-hidden bg-slate-50 py-10 px-4 text-slate-900">
       <div className="mx-auto max-w-6xl">
         <header className="mb-8 flex items-center justify-between gap-4">
           <div>
@@ -961,9 +1018,6 @@ function App() {
                           isSameDay(subtask.due_date, dateForDay)
                       );
 
-                    const weekdayFull = dateForDay.toLocaleDateString('en-US', {
-                      weekday: 'long',
-                    });
                     const weekdayShort = dateForDay.toLocaleDateString('en-US', {
                       weekday: 'short',
                     });
@@ -976,17 +1030,14 @@ function App() {
                           setWeekOffset(0);
                           setCurrentDate(dateForDay);
                         }}
-                        className={`flex flex-col items-center justify-center rounded-xl px-1.5 py-1 text-[11px] transition-colors sm:rounded-2xl sm:px-3 sm:py-2 sm:text-sm ${
+                        className={`flex flex-col items-center justify-center rounded-xl px-1.5 py-1 text-[11px] transition-colors sm:w-[96px] sm:rounded-2xl sm:px-3 sm:py-2 sm:text-sm ${
                           isSelected
                             ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
                             : 'bg-slate-50 text-slate-800 hover:bg-slate-100'
                         }`}
                       >
-                        <span className="font-medium opacity-80 truncate max-w-[56px] sm:hidden">
+                        <span className="font-medium opacity-80">
                           {weekdayShort}
-                        </span>
-                        <span className="hidden font-medium opacity-80 sm:inline">
-                          {weekdayFull}
                         </span>
                         <div className="mt-0.5 flex items-center gap-1 text-base font-semibold sm:mt-1 sm:text-lg">
                           <span>{dateForDay.getDate()}</span>
@@ -1027,26 +1078,26 @@ function App() {
                     const hasSubtasks = todoSubtasks.length > 0;
                     const isSubtasksOpen = openDayParents[todo.id] ?? false;
 
-                    const articleClasses = hasSubtasks
-                      ? 'group flex items-start gap-4 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4 text-sm shadow-sm transition-colors hover:bg-white hover:shadow-md'
-                      : 'group flex items-start gap-4 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-sm shadow-sm transition-colors hover:bg-white hover:shadow-md';
+                    const articleClasses =
+                      'group relative rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-3 text-sm shadow-sm transition-colors hover:bg-white hover:shadow-md';
                     return (
                       <article
                         key={todo.id}
                         className={articleClasses}
                       >
-                        <button
-                          type="button"
-                          onClick={() => toggleComplete(todo.id, todo.is_completed)}
-                          className={`mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border text-white transition-all ${
-                            todo.is_completed
-                              ? 'border-indigo-600 bg-indigo-600 shadow-sm'
-                              : 'border-slate-300 bg-white text-transparent hover:border-indigo-500'
-                          }`}
-                        >
-                          <Check size={14} className="text-white" />
-                        </button>
-                        <div className="flex-1">
+                        <div className="flex items-start gap-4">
+                          <button
+                            type="button"
+                            onClick={() => toggleComplete(todo.id, todo.is_completed)}
+                            className={`mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border text-white transition-all ${
+                              todo.is_completed
+                                ? 'border-indigo-600 bg-indigo-600 shadow-sm'
+                                : 'border-slate-300 bg-white text-transparent hover:border-indigo-500'
+                            }`}
+                          >
+                            <Check size={14} className="text-white" />
+                          </button>
+                          <div className="flex-1">
                           {isEditing ? (
                             <div className="space-y-3">
                               <input
@@ -1092,11 +1143,11 @@ function App() {
                                 </div>
                               </div>
                               {todoSubtasks.length > 0 && (
-                                <div className="mt-2 space-y-2">
+                                <div className="mt-2 space-y-1">
                                   {todoSubtasks.map((subtask) => (
                                     <div
                                       key={subtask.id}
-                                      className="group flex items-center gap-3 rounded-xl bg-white/80 px-3 py-2 text-xs"
+                                      className="group flex items-center justify-between rounded-xl bg-white/80 px-3 py-2 text-[11px]"
                                     >
                                       <button
                                         type="button"
@@ -1241,7 +1292,7 @@ function App() {
                           ) : (
                             <>
                               <h3
-                                className={`text-sm font-medium ${
+                                className={`text-[13px] font-medium ${
                                   todo.is_completed
                                     ? 'text-slate-400 line-through'
                                     : 'text-slate-900'
@@ -1250,11 +1301,13 @@ function App() {
                                 {todo.task}
                               </h3>
                               {todo.description && (
-                                <p className="mt-1 text-xs text-slate-500">{todo.description}</p>
+                                <p className="mt-1 text-[11px] text-slate-500">
+                                  {todo.description}
+                                </p>
                               )}
                               {todo.due_date && (
-                                <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                                  <Calendar size={14} />
+                                <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
+                                  <Calendar size={12} />
                                   <span>{formatDate(todo.due_date)}</span>
                                 </div>
                               )}
@@ -1269,7 +1322,9 @@ function App() {
                                   }
                                   className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-700"
                                 >
-                                  <span>{isSubtasksOpen ? 'Hide sub-tasks' : 'Show sub-tasks'}</span>
+                                  <span>
+                                    {isSubtasksOpen ? 'Hide sub-tasks' : 'Show sub-tasks'}
+                                  </span>
                                   <span
                                     className={`transition-transform ${
                                       isSubtasksOpen ? 'rotate-180' : ''
@@ -1280,85 +1335,91 @@ function App() {
                                 </button>
                               )}
                               {isSubtasksOpen && hasSubtasks && (
-                                <div className="mt-2 space-y-2">
+                                <div className="mt-2 space-y-1">
                                   {todoSubtasks.map((subtask) => (
                                     <div
                                       key={subtask.id}
-                                      className="group flex items-center gap-3 rounded-xl bg-white/80 px-3 py-2 text-xs"
+                                      className="group flex items-center justify-between rounded-xl bg-white/80 px-3 py-2 text-[11px]"
                                     >
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          toggleSubtaskComplete(
-                                            subtask.id,
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            toggleSubtaskComplete(
+                                              subtask.id,
+                                              subtask.is_completed
+                                            )
+                                          }
+                                          className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border text-white transition-all ${
                                             subtask.is_completed
-                                          )
-                                        }
-                                        className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border text-white transition-all ${
-                                          subtask.is_completed
-                                            ? 'border-indigo-600 bg-indigo-600'
-                                            : 'border-slate-300 bg-white text-transparent hover:border-indigo-500'
-                                        }`}
-                                      >
-                                        <Check size={10} className="text-white" />
-                                      </button>
-                                      <div className="flex-1">
-                                        {editingSubtaskId === subtask.id ? (
-                                          <div className="space-y-2">
-                                            <input
-                                              type="text"
-                                              value={editSubtaskTitle}
-                                              onChange={(e) => setEditSubtaskTitle(e.target.value)}
-                                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                            />
-                                            <div className="flex flex-wrap items-center gap-3">
-                                              <InlineDatePicker
-                                                value={editSubtaskDueDate}
-                                                onChange={setEditSubtaskDueDate}
-                                                placeholder="dd/mm/yyyy"
-                                                inputClassName="rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-xs text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                              ? 'border-indigo-600 bg-indigo-600'
+                                              : 'border-slate-300 bg-white text-transparent hover:border-indigo-500'
+                                          }`}
+                                        >
+                                          <Check size={10} className="text-white" />
+                                        </button>
+                                        <div className="flex-1">
+                                          {editingSubtaskId === subtask.id ? (
+                                            <div className="space-y-2">
+                                              <input
+                                                type="text"
+                                                value={editSubtaskTitle}
+                                                onChange={(e) =>
+                                                  setEditSubtaskTitle(e.target.value)
+                                                }
+                                                className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                                               />
-                                              <div className="ml-auto flex items-center gap-2 text-xs">
-                                                <button
-                                                  type="button"
-                                                  onClick={() => {
-                                                    setEditingSubtaskId(null);
-                                                    setEditSubtaskTitle('');
-                                                    setEditSubtaskDueDate('');
-                                                  }}
-                                                  className="rounded-full px-3 py-1 font-medium text-slate-500 hover:text-slate-700"
-                                                >
-                                                  Cancel
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  onClick={() => saveSubtaskEdit(subtask.id)}
-                                                  className="rounded-full bg-indigo-600 px-3 py-1 font-medium text-white shadow-sm hover:bg-indigo-700"
-                                                >
-                                                  Save
-                                                </button>
+                                              <div className="flex flex-wrap items-center gap-3">
+                                                <InlineDatePicker
+                                                  value={editSubtaskDueDate}
+                                                  onChange={setEditSubtaskDueDate}
+                                                  placeholder="dd/mm/yyyy"
+                                                  inputClassName="rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-xs text-slate-700 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                                />
+                                                <div className="ml-auto flex items-center gap-2 text-xs">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setEditingSubtaskId(null);
+                                                      setEditSubtaskTitle('');
+                                                      setEditSubtaskDueDate('');
+                                                    }}
+                                                    className="rounded-full px-3 py-1 font-medium text-slate-500 hover:text-slate-700"
+                                                  >
+                                                    Cancel
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => saveSubtaskEdit(subtask.id)}
+                                                    className="rounded-full bg-indigo-600 px-3 py-1 font-medium text-white shadow-sm hover:bg-indigo-700"
+                                                  >
+                                                    Save
+                                                  </button>
+                                                </div>
                                               </div>
                                             </div>
-                                          </div>
-                                        ) : (
-                                          <>
-                                            <p
-                                              className={`text-sm font-medium ${
-                                                subtask.is_completed
-                                                  ? 'text-slate-400 line-through'
-                                                  : 'text-slate-800'
-                                              }`}
-                                            >
-                                              {subtask.title}
-                                            </p>
-                                            {subtask.due_date && (
-                                              <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-400 whitespace-nowrap">
-                                                <Calendar size={10} />
-                                                <span>{formatDate(subtask.due_date)}</span>
-                                              </div>
-                                            )}
-                                          </>
-                                        )}
+                                          ) : (
+                                            <>
+                                              <p
+                                                className={`text-[13px] font-medium ${
+                                                  subtask.is_completed
+                                                    ? 'text-slate-400 line-through'
+                                                    : 'text-slate-800'
+                                                }`}
+                                              >
+                                                <span className="whitespace-nowrap">
+                                                  {subtask.title}
+                                                </span>
+                                              </p>
+                                              {subtask.due_date && (
+                                                <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-400">
+                                                  <Calendar size={10} />
+                                                  <span>{formatDate(subtask.due_date)}</span>
+                                                </div>
+                                              )}
+                                            </>
+                                          )}
+                                        </div>
                                       </div>
                                       <div className="flex flex-col items-end gap-1">
                                         {editingSubtaskId !== subtask.id && (
@@ -1395,34 +1456,33 @@ function App() {
                             </>
                           )}
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                          {!isEditing && (
-                            <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingId(todo.id);
-                                  setEditingSide('left');
-                                  setEditTask(todo.task);
-                                  setEditDescription(todo.description || '');
-                                  setEditDueDate(formatDateForInput(todo.due_date));
-                                }}
-                                className="rounded-full p-1 text-slate-400 hover:text-slate-700"
-                                aria-label="Edit task"
-                              >
-                                <Pencil size={16} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deleteTodo(todo.id)}
-                                className="rounded-full p-1 text-slate-400 hover:text-red-500"
-                                aria-label="Delete task"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          )}
                         </div>
+                        {!isEditing && (
+                          <div className="pointer-events-auto absolute right-2 top-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingId(todo.id);
+                                setEditingSide('left');
+                                setEditTask(todo.task);
+                                setEditDescription(todo.description || '');
+                                setEditDueDate(formatDateForInput(todo.due_date));
+                              }}
+                              className="rounded-full p-1 text-slate-400 hover:text-slate-700"
+                              aria-label="Edit task"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteTodo(todo.id)}
+                              className="rounded-full p-1 text-slate-400 hover:text-red-500"
+                              aria-label="Delete task"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        )}
                       </article>
                     );
                   })}
@@ -1604,10 +1664,10 @@ function App() {
                   const overviewSubtasks = sortSubtasksByDate(
                     subtasks.filter((subtask) => {
                       if (subtask.todo_id !== todo.id) return false;
-                      if (globalFilter === 'active') {
-                        return !subtask.is_completed;
+                      if (globalFilter === 'unscheduled') {
+                        return !subtask.due_date && !subtask.is_completed;
                       }
-                      return !subtask.is_completed && !subtask.due_date;
+                      return true;
                     })
                   );
                   const hasOverviewSubtasks = overviewSubtasks.length > 0;
@@ -1797,7 +1857,7 @@ function App() {
                                                       : 'text-slate-800'
                                                   }`}
                                                 >
-                                                  {subtask.title}
+                                                  <span className="whitespace-nowrap">{subtask.title}</span>
                                                 </p>
                                                 {subtask.due_date && (
                                                   <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-400">
@@ -1883,7 +1943,7 @@ function App() {
                     return (
                       <article
                         key={`unscheduled-subtask-${subtask.id}`}
-                        className="group rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-3 text-xs shadow-sm transition-colors hover:bg-white hover:shadow-md"
+                        className="group w-full rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-3 text-xs shadow-sm transition-colors hover:bg-white hover:shadow-md"
                       >
                         <div className="flex items-start gap-3">
                           <button
@@ -1910,7 +1970,7 @@ function App() {
                                   : 'text-slate-900'
                               }`}
                             >
-                              <span>{subtask.title}</span>
+                              <span className="whitespace-nowrap">{subtask.title}</span>
                               {parentTodo && (
                                 <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600 truncate max-w-[120px]">
                                   {parentTodo.task}
